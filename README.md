@@ -1,18 +1,13 @@
 
 # A Learned Pixel-by-Pixel Lossless Image Compression Method with 59K Parameters and Parallel Decoding
 
-
+## Source
+Fork of [github project](https://github.com/ssgms/A-Learned-Pixel-by-Pixel-Lossless-Image-Compression-Method-with-59K-Parameters-and-Parallel-Decoding.git)
 
 
 ## Abstract
 This paper considers lossless image compression and presents a learned compression system that can achieve state-of-the-art lossless compression performance but uses only 59K parameters, which is more than 30x less than other learned systems proposed recently in the literature. The explored system is based on a learned pixel-by-pixel lossless image compression method, where each pixel’s probability distribution parameters are obtained by processing the pixel’s causal neighborhood (i.e. previously encoded/decoded pixels) with a simple neural network comprising 59K parameters. This causality causes the decoder to operate sequentially, i.e. the neural network has to be evaluated for each pixel sequentially, which increases decoding time significantly with common GPU software and hardware. To reduce the decoding time, parallel decoding algorithms are proposed and implemented. The obtained lossless image compression system is compared to traditional and learned systems in the literature in terms of compression performance, encoding-decoding times and computational complexity. 
-## Requirements
-    pytorch
-    PIL
-    easydict
-    numpy
-    torch-vision
-    torchnet
+
 ## Training
 For training: 
 1) Edit your json file.
@@ -34,6 +29,19 @@ For decoding operation:
 5) Set "H" and "W" as the height and width of the image to be decoded.
 6) For parallel decoding, set "decoder_method" as 1 (Wavefront parallel decoding method) or 2 (diagonal parallel decoding method).
 ## How to run code
+
+### Setup
+
+Initialize environment from the yaml file 'environment_universal.yml' or one of the specific yaml files provided for each operating system.
+
+```
+pip install environment_universal.yml
+conda env create -n environment_universal.yml
+conda activate compression-59k-metal
+```
+
+
+### Run
 To run the code with adjusted settings:
 
     python main.py configs/your_json_file.json

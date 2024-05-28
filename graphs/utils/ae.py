@@ -1,4 +1,4 @@
-from range_coder import *
+# from range_coder import *
 import torch
 from torch.nn import functional as F
 import pickle

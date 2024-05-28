@@ -5,6 +5,7 @@ from graphs.models.MaskedConvLossless_net import MaskedConvLosslessNet
 from graphs.losses.rate_distortion_loss import TrainRateLoss, ValidRateLoss
 from dataloaders.image_dl import ImageDataLoader
 from loggers.rate import RateLogger
+import logging
 
 class MaskedConvLosslessAgent(BaseAgent):
     def __init__(self, config):
@@ -20,6 +21,8 @@ class MaskedConvLosslessAgent(BaseAgent):
         self.train_logger = RateLogger()
         self.valid_logger = RateLogger()
         self.test_logger  = RateLogger()
+
+        self.logger = logging.getLogger("Agent")
         if config.mode == 'test':
             self.load_checkpoint('model_best.pth.tar')
         elif config.resume_training:
@@ -62,9 +65,10 @@ class MaskedConvLosslessAgent(BaseAgent):
             if self.run_mode=="encode":
                 for batch_idx, y in enumerate(self.data_loader.test_loader):
                     bpp = self.model.compress(y.to(self.device))
-                    print("Encoding finished..")
+                    self.logger.debug("BPP:{bpp}")
+                    self.logger.info("Encoding finished..")
             elif self.run_mode == "decode":
                 decoded_image = self.model.decompress(self.config.H, self.config.W)
-                print("Decoding finished..")
+                self.logger.info("Decoding finished..")
             else:
-                print("Enter a valid mode!")
+                self.logger.info("Enter a valid mode!")
