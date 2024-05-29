@@ -5,6 +5,8 @@ from ..utils.ae import *
 from ..numpyAc.numpyAc import *
 import numpy as np
 import torch.nn.functional as F
+import logging
+import os
 
 
 class MaskedConvLosslessNet(nn.Module):
@@ -25,6 +27,7 @@ class MaskedConvLosslessNet(nn.Module):
 
     def decompress(self, h,w):
         bitstream = self.entropy.lossless_decode(h,w)
+        print("decompressed shape: (decompress(self, h,w))", bitstream.shape)
         return  bitstream
 
 class EntropyLayerMaskedConvLS(nn.Module):
@@ -35,12 +38,15 @@ class EntropyLayerMaskedConvLS(nn.Module):
         Uses GMM to model conditional PDF(s).
         """
         super(EntropyLayerMaskedConvLS, self).__init__()
+        self.logger = logging.getLogger("Agent")
+
         self.num_mix = config.num_mix_GMM
         self.num_mdl = config.num_color_channels
         self.res_con = config.res_con
         self.mode = config.mode
         self.model = CondGMMNetMaskedConvMethod3(config, self.num_mix, self.num_mdl, self.res_con)
         self.run_mode = config.run_mode
+        self.decode_path = config.write_decode_data
         self.wr_img_path = config.write_encode_data
         self.bistream_path = config.bitstream_path
         self.run_type = config.run_type
@@ -75,7 +81,6 @@ class EntropyLayerMaskedConvLS(nn.Module):
             pmf_values = self.model.forward_pmf(y)  # B x C x H x W
             self_informations = -torch.log2(pmf_values)
             bpp_rate = torch.mean(self_informations)  # calculating bits per subpixel
-            print(bpp_rate, "bpp_rate")
         return self_informations
 
     def lossless_decode(self,h,w):
@@ -83,12 +88,33 @@ class EntropyLayerMaskedConvLS(nn.Module):
             decoded_image=self.decode_bitstream(h,w)
         elif (self.run_type=="P"):
             decoded_image = self.decode_bitstream_parallel(h,w)
+        
+        # Construct the output filepath for decoded image
+        filepath = os.path.join(self.decode_path, 'decoded_img_array.npy')
+        self.logger.info(f"Saving decoded image of shape {decoded_image.shape} in: {filepath}")
+        
+        # Save the decoded image
+        try:
+            np.save(file=filepath, arr=decoded_image.numpy())
+        except AttributeError as ae:
+            np.save(file=filepath, arr=decoded_image)
+        
+
         return decoded_image
 	
 	#Some parts of the following code for wavefront parallelization follows Zhang et al's codes at link https://github.com/zmtomorrow/ParallelNeLLoC
     ##################  SERIAL DECODE  #####################
     @torch.no_grad()
     def decode_bitstream(self,h,w,ks=5):
+        '''
+        Decode the bitstream and return the decoded image
+
+        Args:
+            h: height of the image
+            w: width of the image
+            ks: kernel size of the mask
+            
+        '''
         function = self.model; device=self.device;mid = int(ks / 2)
         decode_img = torch.zeros([1, 3, h + mid * 2, w + mid * 2])
         batch_steps = calculate_batch_steps(self, 3, 5)
@@ -110,7 +136,7 @@ class EntropyLayerMaskedConvLS(nn.Module):
     ################# PARALLEL DECODE #####################
     @torch.no_grad()
     def decode_bitstream_parallel(self,h,w,k=5):
-        function = self.model;mid = int(k / 2);
+        function = self.model;mid = int(k / 2)
         decode_img = (torch.zeros([1, 3, h + mid * 2, w + mid * 2])).numpy();
         batch_steps = calculate_batch_steps(self, 3, 5)
         decodec = arithmeticDeCoding(None, h * w * 3, 256, self.bistream_path)
@@ -144,10 +170,10 @@ class EntropyLayerMaskedConvLS(nn.Module):
     def _arithmetic_code(self,org):
         org = org[:, :, 0:0 + self.H, 0:0 + self.W];print(org.shape[2],org.shape[3])
         np.save(self.wr_img_path + 'encoded_img_array', (org * 255).cpu())
-        function=self.model;H=org.shape[2];W=org.shape[3];
+        function=self.model;H=org.shape[2];W=org.shape[3]
         cdf_input_tensor=calculate_batch_steps(self,H, W)
         wms=function.forward_wms(org)
-        cdf_out=[];
+        cdf_out=[]
         for i in range (257):
             x=cdf_input_tensor[i:i+1]
             cdf_tensor = function.forward_cdf_encode(x,org,wms)
@@ -156,7 +182,7 @@ class EntropyLayerMaskedConvLS(nn.Module):
         sym_org =((255 * (org)).type(torch.int16)).cpu()
         sym_org=((sym_org.reshape(-1,H*W)).permute(1,0)).reshape(-1)
         byte_stream, real_bits = self.codec.encode(cdfs_enc.numpy(), sym_org.numpy(),self.bistream_path)
-        rate = len(byte_stream) * 8 /torch.numel(sym_org);
+        rate = len(byte_stream) * 8 /torch.numel(sym_org)
         print("****Bitrate*** : ", rate)
         return rate
 

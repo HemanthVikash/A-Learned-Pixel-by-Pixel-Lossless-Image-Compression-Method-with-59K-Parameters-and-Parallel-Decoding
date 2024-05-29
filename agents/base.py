@@ -68,9 +68,15 @@ class BaseAgent:
             'optimizer': self.optimizer.state_dict(),
             'scheduler': self.scheduler.state_dict(),
         }
-        torch.save(state, self.config.checkpoint_dir + filename)
+        filepath = self.config.checkpoint_dir + filename
+        
+        # Save checkpoint
+        torch.save(state, filepath)
+
+        # Save the checkpoint in case of failure
+        self.logger.info("Saving checkpoint to".format(filepath))
         if is_best:
-            shutil.copyfile(self.config.checkpoint_dir + filename,
+            shutil.copyfile(filepath,
                             self.config.checkpoint_dir + 'model_best.pth.tar')
 
     def run(self):
@@ -112,3 +118,5 @@ class BaseAgent:
     def finalize(self):
         self.logger.info("Please wait while finalizing the operation.. Thank you")
         self.save_checkpoint()
+
+        

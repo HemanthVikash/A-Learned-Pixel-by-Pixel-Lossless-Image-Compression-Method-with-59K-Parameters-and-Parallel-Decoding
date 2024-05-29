@@ -64,11 +64,12 @@ class MaskedConvLosslessAgent(BaseAgent):
         with torch.no_grad():
             if self.run_mode=="encode":
                 for batch_idx, y in enumerate(self.data_loader.test_loader):
+                    self.logger.info(f"Input image size: {y.shape}")
                     bpp = self.model.compress(y.to(self.device))
-                    self.logger.debug("BPP:{bpp}")
-                    self.logger.info("Encoding finished..")
+                    self.logger.debug(f"BPP:{bpp}")
+                    self.logger.info("Encoding finished")
             elif self.run_mode == "decode":
                 decoded_image = self.model.decompress(self.config.H, self.config.W)
-                self.logger.info("Decoding finished..")
+                self.logger.info(f"Decoded image size (test(self)): {decoded_image.shape}")
             else:
                 self.logger.info("Enter a valid mode!")
